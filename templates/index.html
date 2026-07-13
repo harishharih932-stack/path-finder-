@@ -6,7 +6,305 @@
 <title>PathFinder — DSA Visual Lab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css">
+<style>
+/* ============================================================
+   Design tokens — "engineer's blueprint" direction
+   Grid graph algorithms rendered like a survey/blueprint sheet:
+   deep navy ground, cyan trace lines, amber exploration wave,
+   chalk-white walls, coral start/end pins.
+   ============================================================ */
+:root {
+  --bg:            #0A1F33;
+  --bg-panel:      #0E2A45;
+  --bg-panel-2:    #0C243B;
+  --grid-line:     #1C3E60;
+  --cell-empty:    #123152;
+  --cell-wall:     #E9E4D6;
+  --start:         #2EC4B6;
+  --end:           #FF6B6B;
+  --visited:       #FFB703;
+  --path:          #4CC9F0;
+  --text-primary:  #E7EEF6;
+  --text-muted:    #7E97B3;
+  --text-faint:    #4E6C8A;
+  --font-display:  'Space Grotesk', sans-serif;
+  --font-mono:     'JetBrains Mono', monospace;
+  --font-body:     'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 28px 28px;
+  background-attachment: fixed;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  min-height: 100vh;
+}
+
+/* ---------- Topbar ---------- */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 28px 40px;
+  border-bottom: 1px solid var(--grid-line);
+  background: rgba(10, 31, 51, 0.85);
+  backdrop-filter: blur(6px);
+}
+
+.brand { display: flex; align-items: center; gap: 14px; }
+
+.brand-mark {
+  font-size: 28px;
+  color: var(--path);
+  text-shadow: 0 0 12px rgba(76, 201, 240, 0.6);
+}
+
+.brand h1 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.tagline {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.legend-item { display: flex; align-items: center; gap: 6px; }
+
+.swatch {
+  width: 12px; height: 12px;
+  border-radius: 3px;
+  display: inline-block;
+}
+.swatch--start { background: var(--start); }
+.swatch--end { background: var(--end); }
+.swatch--wall { background: var(--cell-wall); }
+.swatch--visited { background: var(--visited); }
+.swatch--path { background: var(--path); }
+
+/* ---------- Layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 28px;
+  padding: 32px 40px 12px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; }
+}
+
+.board-wrap {
+  background: var(--bg-panel-2);
+  border: 1px solid var(--grid-line);
+  border-radius: 10px;
+  padding: 14px;
+  overflow: auto;
+}
+
+.grid {
+  display: grid;
+  gap: 1px;
+  background: var(--grid-line);
+  border: 1px solid var(--grid-line);
+  width: max-content;
+  margin: 0 auto;
+}
+
+.cell {
+  width: 24px;
+  height: 24px;
+  background: var(--cell-empty);
+  transition: background-color 0.15s ease;
+}
+
+.cell.wall { background: var(--cell-wall); }
+
+.cell.start {
+  background: var(--start);
+  box-shadow: 0 0 10px rgba(46, 196, 182, 0.7);
+}
+
+.cell.end {
+  background: var(--end);
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.7);
+}
+
+.cell.visited {
+  background: var(--visited);
+  animation: pulse 0.4s ease-out;
+  opacity: 0.85;
+}
+
+.cell.path {
+  background: var(--path);
+  box-shadow: 0 0 8px rgba(76, 201, 240, 0.85);
+  animation: dropIn 0.3s ease-out;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.4); opacity: 0.2; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.85; }
+}
+
+@keyframes dropIn {
+  0% { transform: scale(0.5); }
+  100% { transform: scale(1); }
+}
+
+/* ---------- Panel ---------- */
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.panel-block {
+  background: var(--bg-panel);
+  border: 1px solid var(--grid-line);
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.panel-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
+
+.panel-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
+.segmented {
+  display: flex;
+  background: var(--bg-panel-2);
+  border-radius: 8px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.segmented__opt {
+  flex: 1;
+  padding: 8px 6px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.segmented__opt.is-active {
+  background: var(--path);
+  color: #06212F;
+  font-weight: 700;
+}
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+
+.btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 10px 12px;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--grid-line);
+  border-radius: 7px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover { border-color: var(--path); }
+.btn:active { transform: scale(0.97); }
+
+.btn--primary {
+  width: 100%;
+  background: var(--path);
+  color: #06212F;
+  font-weight: 700;
+  border: none;
+  padding: 12px;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.btn--primary:hover { filter: brightness(1.08); }
+
+.slider-label {
+  display: block;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--path);
+}
+
+.telemetry-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--grid-line);
+  color: var(--text-muted);
+}
+
+.telemetry-row:last-child { border-bottom: none; }
+.telemetry-row span:last-child { color: var(--text-primary); font-weight: 500; }
+
+/* ---------- Footer ---------- */
+.footer {
+  text-align: center;
+  padding: 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.footer code {
+  color: var(--text-muted);
+}
+
+</style>
 </head>
 <body>
 
@@ -78,6 +376,233 @@
   <span>Built with Flask + vanilla JS · Dijkstra / BFS / A* implemented from scratch in <code>algorithms.py</code></span>
 </footer>
 
-<script src="/script.js"></script>
+<script>
+// ============================================================
+// script.js — grid UI + interaction + animation of results
+// coming from the Flask /api/solve endpoint (Dijkstra/BFS/A*).
+// ============================================================
+
+const ROWS = 18;
+const COLS = 34;
+
+const state = {
+  grid: Array.from({ length: ROWS }, () => Array(COLS).fill(0)), // 0 empty, 1 wall
+  start: [Math.floor(ROWS / 2), 4],
+  end: [Math.floor(ROWS / 2), COLS - 5],
+  algorithm: "dijkstra",
+  dragging: null,      // "start" | "end" | "wall" | "erase" | null
+  animating: false,
+};
+
+const gridEl = document.getElementById("grid");
+gridEl.style.gridTemplateColumns = `repeat(${COLS}, 24px)`;
+
+const cells = [];
+
+function buildGrid() {
+  gridEl.innerHTML = "";
+  for (let r = 0; r < ROWS; r++) {
+    const row = [];
+    for (let c = 0; c < COLS; c++) {
+      const div = document.createElement("div");
+      div.className = "cell";
+      div.dataset.r = r;
+      div.dataset.c = c;
+      gridEl.appendChild(div);
+      row.push(div);
+    }
+    cells.push(row);
+  }
+}
+buildGrid();
+
+function cellAt(r, c) {
+  return cells[r][c];
+}
+
+function isStart(r, c) { return r === state.start[0] && c === state.start[1]; }
+function isEnd(r, c) { return r === state.end[0] && c === state.end[1]; }
+
+function render() {
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const el = cellAt(r, c);
+      el.className = "cell";
+      if (isStart(r, c)) el.classList.add("start");
+      else if (isEnd(r, c)) el.classList.add("end");
+      else if (state.grid[r][c] === 1) el.classList.add("wall");
+    }
+  }
+}
+render();
+
+// ---------- Mouse interaction ----------
+gridEl.addEventListener("mousedown", (e) => {
+  if (state.animating) return;
+  const target = e.target.closest(".cell");
+  if (!target) return;
+  const r = +target.dataset.r, c = +target.dataset.c;
+
+  if (isStart(r, c)) state.dragging = "start";
+  else if (isEnd(r, c)) state.dragging = "end";
+  else {
+    state.dragging = state.grid[r][c] === 1 ? "erase" : "wall";
+    toggleWall(r, c, state.dragging === "wall");
+  }
+});
+
+gridEl.addEventListener("mouseover", (e) => {
+  if (!state.dragging || state.animating) return;
+  const target = e.target.closest(".cell");
+  if (!target) return;
+  const r = +target.dataset.r, c = +target.dataset.c;
+
+  if (state.dragging === "start" && !isEnd(r, c) && state.grid[r][c] === 0) {
+    state.start = [r, c];
+    render();
+  } else if (state.dragging === "end" && !isStart(r, c) && state.grid[r][c] === 0) {
+    state.end = [r, c];
+    render();
+  } else if (state.dragging === "wall" || state.dragging === "erase") {
+    toggleWall(r, c, state.dragging === "wall");
+  }
+});
+
+window.addEventListener("mouseup", () => { state.dragging = null; });
+
+function toggleWall(r, c, makeWall) {
+  if (isStart(r, c) || isEnd(r, c)) return;
+  state.grid[r][c] = makeWall ? 1 : 0;
+  render();
+}
+
+// ---------- Algorithm selector ----------
+const algoNotes = {
+  dijkstra: "Min-heap priority queue · guarantees shortest path on weighted grid.",
+  bfs: "FIFO queue · explores layer by layer, optimal on unweighted grids.",
+  astar: "Min-heap + Manhattan heuristic · aims straight for the goal, still optimal.",
+};
+
+document.getElementById("algoSelect").addEventListener("click", (e) => {
+  const btn = e.target.closest(".segmented__opt");
+  if (!btn) return;
+  document.querySelectorAll(".segmented__opt").forEach(b => b.classList.remove("is-active"));
+  btn.classList.add("is-active");
+  state.algorithm = btn.dataset.algo;
+  document.getElementById("algoNote").textContent = algoNotes[state.algorithm];
+});
+
+// ---------- Board buttons ----------
+document.getElementById("clearWallsBtn").addEventListener("click", () => {
+  if (state.animating) return;
+  state.grid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  render();
+  resetStats();
+});
+
+document.getElementById("clearPathBtn").addEventListener("click", () => {
+  if (state.animating) return;
+  render();
+  resetStats();
+});
+
+document.getElementById("mazeBtn").addEventListener("click", () => {
+  if (state.animating) return;
+  const density = 0.28;
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (isStart(r, c) || isEnd(r, c)) continue;
+      state.grid[r][c] = Math.random() < density ? 1 : 0;
+    }
+  }
+  render();
+  resetStats();
+});
+
+// ---------- Visualize ----------
+document.getElementById("visualizeBtn").addEventListener("click", runVisualization);
+
+async function runVisualization() {
+  if (state.animating) return;
+  render();
+  resetStats();
+  setStatus("computing…");
+
+  const t0 = performance.now();
+  let data;
+  try {
+    const res = await fetch("/api/solve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        grid: state.grid,
+        start: state.start,
+        end: state.end,
+        algorithm: state.algorithm,
+      }),
+    });
+    data = await res.json();
+  } catch (err) {
+    setStatus("error — is the server running?");
+    return;
+  }
+  const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
+
+  state.animating = true;
+  const speed = 101 - document.getElementById("speed").value; // ms per step
+  const delay = Math.max(2, speed / 3);
+
+  let i = 0;
+  const visited = data.visited.filter(([r, c]) => !isStart(r, c) && !isEnd(r, c));
+
+  function stepVisited() {
+    if (i >= visited.length) {
+      animatePath(data, elapsed);
+      return;
+    }
+    const [r, c] = visited[i];
+    cellAt(r, c).classList.add("visited");
+    i++;
+    setTimeout(stepVisited, delay);
+  }
+  stepVisited();
+}
+
+function animatePath(data, elapsed) {
+  const path = data.path.filter(([r, c]) => !isStart(r, c) && !isEnd(r, c));
+  let i = 0;
+  function stepPath() {
+    if (i >= path.length) {
+      finish(data, elapsed);
+      return;
+    }
+    const [r, c] = path[i];
+    cellAt(r, c).classList.add("path");
+    i++;
+    setTimeout(stepPath, 16);
+  }
+  stepPath();
+}
+
+function finish(data, elapsed) {
+  state.animating = false;
+  document.getElementById("statVisited").textContent = String(data.visited_count).padStart(3, "0");
+  document.getElementById("statPath").textContent = String(data.path_length).padStart(3, "0");
+  document.getElementById("statTime").textContent = `${elapsed}s`;
+  setStatus(data.found ? "path found" : "no path");
+}
+
+function resetStats() {
+  document.getElementById("statVisited").textContent = "000";
+  document.getElementById("statPath").textContent = "000";
+  document.getElementById("statTime").textContent = "0.00s";
+  setStatus("idle");
+}
+
+function setStatus(text) {
+  document.getElementById("statStatus").textContent = text;
+}
+
+</script>
 </body>
 </html>
