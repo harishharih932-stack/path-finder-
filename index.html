@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PathFinder — DSA Visual Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">◈</span>
+    <div>
+      <h1>PathFinder</h1>
+      <p class="tagline">A DSA Visual Lab — graphs, heaps &amp; queues, node by node</p>
+    </div>
+  </div>
+  <div class="legend">
+    <span class="legend-item"><i class="swatch swatch--start"></i>Start</span>
+    <span class="legend-item"><i class="swatch swatch--end"></i>End</span>
+    <span class="legend-item"><i class="swatch swatch--wall"></i>Wall</span>
+    <span class="legend-item"><i class="swatch swatch--visited"></i>Explored</span>
+    <span class="legend-item"><i class="swatch swatch--path"></i>Path</span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <section class="board-wrap">
+    <div id="grid" class="grid"></div>
+  </section>
+
+  <aside class="panel">
+
+    <div class="panel-block">
+      <h2 class="panel-title">01 — Algorithm</h2>
+      <div class="segmented" id="algoSelect">
+        <button class="segmented__opt is-active" data-algo="dijkstra">Dijkstra</button>
+        <button class="segmented__opt" data-algo="bfs">BFS</button>
+        <button class="segmented__opt" data-algo="astar">A*</button>
+      </div>
+      <p class="panel-note" id="algoNote">Min-heap priority queue · guarantees shortest path on weighted grid.</p>
+    </div>
+
+    <div class="panel-block">
+      <h2 class="panel-title">02 — Board</h2>
+      <div class="btn-row">
+        <button class="btn" id="mazeBtn">Generate Maze</button>
+        <button class="btn" id="clearWallsBtn">Clear Board</button>
+        <button class="btn" id="clearPathBtn">Clear Path</button>
+      </div>
+      <label class="slider-label" for="speed">Animation speed</label>
+      <input type="range" id="speed" min="1" max="100" value="60">
+    </div>
+
+    <div class="panel-block">
+      <h2 class="panel-title">03 — Run</h2>
+      <button class="btn btn--primary" id="visualizeBtn">▸ Visualize</button>
+      <p class="panel-note">Drag the start / end nodes to move them. Click and drag on empty cells to draw walls.</p>
+    </div>
+
+    <div class="panel-block telemetry">
+      <h2 class="panel-title">Telemetry</h2>
+      <div class="telemetry-row"><span>NODES VISITED</span><span id="statVisited">000</span></div>
+      <div class="telemetry-row"><span>PATH LENGTH</span><span id="statPath">000</span></div>
+      <div class="telemetry-row"><span>TIME</span><span id="statTime">0.00s</span></div>
+      <div class="telemetry-row"><span>STATUS</span><span id="statStatus">idle</span></div>
+    </div>
+
+  </aside>
+
+</main>
+
+<footer class="footer">
+  <span>Built with Flask + vanilla JS · Dijkstra / BFS / A* implemented from scratch in <code>algorithms.py</code></span>
+</footer>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
